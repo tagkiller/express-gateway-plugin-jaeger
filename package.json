@@ -23,5 +23,9 @@
   "bugs": {
     "url": "https://github.com/tagkiller/express-gateway-jaeger/issues"
   },
-  "homepage": "https://github.com/tagkiller/express-gateway-jaeger#readme"
+  "homepage": "https://github.com/tagkiller/express-gateway-jaeger#readme",
+  "dependencies": {
+    "jaeger-client": "^3.15.0",
+    "opentracing": "^0.14.4"
+  }
 }
