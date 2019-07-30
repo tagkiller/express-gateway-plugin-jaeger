@@ -1,0 +1,27 @@
+{
+  "name": "express-gateway-jaeger",
+  "version": "0.0.1",
+  "description": "Jaeger Client implementation plugin for express-gateway-jaeger.",
+  "main": "manifest.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tagkiller/express-gateway-jaeger.git"
+  },
+  "keywords": [
+    "express",
+    "gateway",
+    "express-gateway",
+    "jaeger",
+    "client",
+    "opentracing"
+  ],
+  "author": "Younes Baddich",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/tagkiller/express-gateway-jaeger/issues"
+  },
+  "homepage": "https://github.com/tagkiller/express-gateway-jaeger#readme"
+}
