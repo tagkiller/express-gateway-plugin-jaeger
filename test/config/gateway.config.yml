@@ -1,0 +1,29 @@
+http:
+  port: 8080
+admin:
+  port: 9876
+  hostname: localhost
+apiEndpoints:
+  api:
+    host: '*'
+serviceEndpoints:
+  httpbin:
+    url: 'http://localhost:8081'
+policies:
+  - proxy
+  - jaeger
+pipelines:
+  - name: basic
+    apiEndpoints:
+      - api
+    policies:
+      -
+        # jaeger:
+        #   -
+        #     action:
+        #       rewrite: /api/v1/:route
+
+      - proxy:
+          - action:
+              serviceEndpoint: httpbin
+              changeOrigin: true
