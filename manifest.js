@@ -1,9 +1,36 @@
 // @ts-check
 /// <reference path="./node_modules/express-gateway/index.d.ts" />
+const opentracing = require('opentracing');
+const initTracer = require('jaeger-client').initTracer;
+const PrometheusMetricsFactory = require('jaeger-client').PrometheusMetricsFactory;
+const promClient = require('prom-client');
 
 const plugin = {
   version: '1.0.0',
   policies: ['jaeger'],
+
+  policy: (actionParams) => {
+    const { tags, logger } = actionParams;
+    const metrics = new PrometheusMetricsFactory(promClient, actionParams.serviceName);
+    const tracer = initTracer(actionParams, {tags, metrics, logger});
+    return (req, res, next) => {
+      const span = tracer.startSpan(`${req.protocol}_request`);
+      // Look at the following doc for the list of events : https://nodejs.org/api/http.html
+      res.on('error', err => {
+        span.setTag(opentracing.Tags.ERROR, true);
+        span.log({'event': 'error', 'error.object': err, 'message': err.message, 'stack': err.stack});
+        span.finish();
+      });
+      res.on('data', chunk => {
+        span.log({'event': 'data_received', 'chunk_length': chunk.length});
+      });
+      res.on('end', () => {
+        span.log({'event': 'request_end'});
+        span.finish();
+      });
+      next();
+    }
+  },
   init: function (pluginContext) {
     pluginContext.registerPolicy({
       name: 'jaeger',
@@ -22,8 +49,14 @@ const plugin = {
           sampler: {
             type: 'object',
             properties: {
-              type: { type: 'string' },
-              param: { type: 'number' },
+              type: {
+                type: 'string',
+                description: 'The sampler type',
+              },
+              param: {
+                type: 'number',
+                description: 'The sampler parameter (number)',
+              },
               hostPort: { type: 'string' },
               host: {
                 type: 'string',
@@ -33,7 +66,10 @@ const plugin = {
                 type: 'number',
                 description: 'How often the remotely controlled sampler will poll jaeger-agent for the appropriate sampling strategy'
               },
-              refreshIntervalMs: { type: 'number' },
+              refreshIntervalMs: {
+                type: 'number',
+                description: 'How often the remotely controlled sampler will poll jaeger-agent for the appropriate sampling strategy'
+              },
             },
             required: ['type', 'param'],
           },
@@ -46,11 +82,21 @@ const plugin = {
               },
               agentHost: {
                 type: 'string',
+                description: 'The hostname for communicating with agent via UDP',
               },
-              agentPort: { type: 'number' },
+              agentPort: {
+                type: 'number',
+                description: 'The port for communicating with agent via UDP',
+              },
               collectorEndpoint: { type: 'string' },
-              username: { type: 'string' },
-              password: { type: 'string' },
+              username: {
+                type: 'string',
+                description: 'Username to send as part of "Basic" authentication to the collector endpoint',
+              },
+              password: {
+                type: 'string',
+                description: 'Password to send as part of "Basic" authentication to the collector endpoint'
+              },
               flushIntervalMs: {
                 type: 'number',
                 description: 'The reporter\'s flush interval (ms)'
@@ -64,62 +110,14 @@ const plugin = {
               refreshIntervalMs: { type: 'number' },
             },
           },
-          agentHost: {
-            type: 'string',
-            description: 'The hostname for communicating with agent via UDP'
-          },
-          agentPort: {
-            type: 'integer',
-            description: 'The port for communicating with agent via UDP'
-          },
-          endpoint: {
-            type: 'string',
-
-          },
-          user: {
-            type: 'string',
-            description: 'Username to send as part of "Basic" authentication to the collector endpoint'
-          },
-          password: {
-            type: 'string',
-            description: 'Password to send as part of "Basic" authentication to the collector endpoint'
-          },
-          reporterLogSpans: {
-            type: 'string',
-
-          },
-          reporterFlushInterval: {
-            type: 'string',
-
-          },
-          samplerType: {
-            type: 'string',
-            description: 'The sampler type'
-          },
-          samplerParam: {
-            type: 'string',
-            description: 'The sampler parameter (number)'
-          },
-          samplerManagerHostPort: {
-            type: 'string',
-
-          },
-          samplerRefreshInterval: {
-            type: 'string',
-
-          },
           tags: {
             type: 'string',
             description: 'A comma separated list of name = value tracer level tags, which get added to all reported spans. The value can also refer to an environment variable using the format ${envVarName:default}, where the :default is optional, and identifies a value to be used if the environment variable cannot be found'
           },
-        }
+        },
+        required: ['serviceName'],
       },
-      policy: (actionParams) => {
-
-      }
-
     });
-    pluginContext.registerCondition({});
 
   }
 };
