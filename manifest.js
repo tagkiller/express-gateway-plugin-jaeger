@@ -9,7 +9,6 @@ const plugin = {
   version: '1.0.0',
   policies: ['jaeger'],
 
-
   init: pluginContext => {
     pluginContext.registerPolicy({
       name: 'jaeger',
