@@ -9,29 +9,8 @@ const plugin = {
   version: '1.0.0',
   policies: ['jaeger'],
 
-  policy: (actionParams) => {
-    const { tags, logger } = actionParams;
-    const metrics = new PrometheusMetricsFactory(promClient, actionParams.serviceName);
-    const tracer = initTracer(actionParams, {tags, metrics, logger});
-    return (req, res, next) => {
-      const span = tracer.startSpan(`${req.protocol}_request`);
-      // Look at the following doc for the list of events : https://nodejs.org/api/http.html
-      res.on('error', err => {
-        span.setTag(opentracing.Tags.ERROR, true);
-        span.log({'event': 'error', 'error.object': err, 'message': err.message, 'stack': err.stack});
-        span.finish();
-      });
-      res.on('data', chunk => {
-        span.log({'event': 'data_received', 'chunk_length': chunk.length});
-      });
-      res.on('end', () => {
-        span.log({'event': 'request_end'});
-        span.finish();
-      });
-      next();
-    }
-  },
-  init: function (pluginContext) {
+
+  init: pluginContext => {
     pluginContext.registerPolicy({
       name: 'jaeger',
       schema: {
@@ -64,7 +43,7 @@ const plugin = {
               },
               port: {
                 type: 'number',
-                description: 'How often the remotely controlled sampler will poll jaeger-agent for the appropriate sampling strategy'
+                description: 'The http port'
               },
               refreshIntervalMs: {
                 type: 'number',
@@ -88,7 +67,10 @@ const plugin = {
                 type: 'number',
                 description: 'The port for communicating with agent via UDP',
               },
-              collectorEndpoint: { type: 'string' },
+              collectorEndpoint: {
+                type: 'string',
+                description: 'Provide the traces endpoint; this forces the client to connect directly to the Collector and send spans over HTTP'
+              },
               username: {
                 type: 'string',
                 description: 'Username to send as part of "Basic" authentication to the collector endpoint',
@@ -116,6 +98,32 @@ const plugin = {
           },
         },
         required: ['serviceName'],
+      },
+      policy: (actionParams) => {
+        const { tags, logger } = actionParams;
+        const metrics = new PrometheusMetricsFactory(promClient, actionParams.serviceName);
+        const tracer = initTracer(actionParams, {tags, metrics, logger});
+        console.log('-------- Tracer created', actionParams, tags, metrics, logger);
+        return (req, res, next) => {
+          const span = tracer.startSpan(`${req.protocol}_request`);
+          // Look at the following doc for the list of events : https://nodejs.org/api/http.html
+          console.log('-------- span', res);
+
+          res.on('error', err => {
+            span.setTag(opentracing.Tags.ERROR, true);
+            span.log({'event': 'error', 'error.object': err, 'message': err.message, 'stack': err.stack});
+            span.finish();
+          });
+          res.on('data', chunk => {
+            span.log({'event': 'data_received', 'chunk_length': chunk.length});
+          });
+          res.on('end', () => {
+            span.log({'event': 'request_end'});
+            span.finish();
+            console.log(res);
+          });
+          next();
+        }
       },
     });
 
